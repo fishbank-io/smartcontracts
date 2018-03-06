@@ -72,3 +72,15 @@ Bug report is recommended to include:
 
 # Disclaimer
 The bug bounty program is an experimental and discretionary rewards program for active Fishbank community to encourage and reward those who are helping to improve the platform. It is not a competition. You should know that we can cancel the program at any time, and awards are at the sole discretion of Fishbank team. You are responsible for all taxes. All awards are subject to applicable law. 
+
+# Public sources
+
+Official Website: https://fishbank.io
+
+Telegram Group: https://t.me/fishbank_en
+
+Telegram News: https://t.me/fishbank
+
+Twitter: https://twitter.com/chatrobotic
+
+Facebook: https://fb.me/fishbank.io
