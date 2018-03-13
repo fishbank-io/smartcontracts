@@ -4,10 +4,6 @@ import "./Ownable.sol";
 
 contract FishbankUtils is Ownable {
 
-    uint32 public initialWeight = 36;
-    uint32 public whaleInitialWeight = 10e6;
-
-
     uint32[100] cooldowns = [
         720 minutes, 720 minutes, 720 minutes, 720 minutes, 720 minutes, //1-5
         660 minutes, 660 minutes, 660 minutes, 660 minutes, 660 minutes, //6-10
@@ -36,13 +32,7 @@ contract FishbankUtils is Ownable {
         cooldowns = _cooldowns;
     }
 
-    function setInitialWeights(uint32 _initialWeight, uint32 _whaleInitialWeight) public onlyOwner {
-        initialWeight = _initialWeight;
-        whaleInitialWeight = _whaleInitialWeight;
-    }
-
-    function getFishParams(uint256 hashSeed1, uint256 hashSeed2, uint256 fishesLength, address coinbase) external view returns (uint32[4]) {
-        uint32 weight = initialWeight;
+    function getFishParams(uint256 hashSeed1, uint256 hashSeed2, uint256 fishesLength, address coinbase) external pure returns (uint32[4]) {
 
         bytes32[5] memory hashSeeds;
         hashSeeds[0] = keccak256(hashSeed1 ^ hashSeed2); //xor both seed from owner and user so no one can cheat
@@ -52,35 +42,80 @@ contract FishbankUtils is Ownable {
         hashSeeds[4] = keccak256(hashSeeds[1], hashSeeds[2], hashSeeds[0]);
 
         uint24[6] memory seeds = [
-            uint24(uint(hashSeeds[3]) % 10e6 + 1), //whale_chance
+            uint24(uint(hashSeeds[3]) % 10e6 + 1), //whale chance
             uint24(uint(hashSeeds[0]) % 420 + 1), //power
             uint24(uint(hashSeeds[1]) % 420 + 1), //agility
             uint24(uint(hashSeeds[2]) % 150 + 1), //speed
-            uint24(uint(hashSeeds[4]) % 16 + 1), //whale_type
+            uint24(uint(hashSeeds[4]) % 16 + 1), //whale type
             uint24(uint(hashSeeds[4]) % 5000 + 1) //rarity
         ];
 
         uint32[4] memory fishParams;
 
-        if (seeds[0] == 10e6) {//This is a whale
-            weight = whaleInitialWeight;
+        if (seeds[0] == 1000000) {//This is a whale 1:1 000 000 chance
 
             if (seeds[4] == 1) {//Orca
-                fishParams = [140 + uint8(seeds[1] / 42), 140 + uint8(seeds[2] / 42), 75 + uint8(seeds[3] / 6), weight];
+                fishParams = [140 + uint8(seeds[1] / 42), 140 + uint8(seeds[2] / 42), 75 + uint8(seeds[3] / 6), uint32(500000)];
+                if(fishParams[0] == 140) {
+                    fishParams[0]++;
+                }
+                if(fishParams[1] == 140) {
+                    fishParams[1]++;
+                }
+                if(fishParams[2] == 75) {
+                    fishParams[2]++;
+                }
             } else if (seeds[4] < 4) {//Blue whale
-                fishParams = [130 + uint8(seeds[1] / 42), 130 + uint8(seeds[2] / 42), 75 + uint8(seeds[3] / 6), weight];
+                fishParams = [130 + uint8(seeds[1] / 42), 130 + uint8(seeds[2] / 42), 75 + uint8(seeds[3] / 6), uint32(500000)];
+                if(fishParams[0] == 130) {
+                    fishParams[0]++;
+                }
+                if(fishParams[1] == 130) {
+                    fishParams[1]++;
+                }
+                if(fishParams[2] == 75) {
+                    fishParams[2]++;
+                }
             } else {//Cachalot
-                fishParams = [115 + uint8(seeds[1] / 28), 115 + uint8(seeds[2] / 28), 75 + uint8(seeds[3] / 6), weight];
+                fishParams = [115 + uint8(seeds[1] / 28), 115 + uint8(seeds[2] / 28), 75 + uint8(seeds[3] / 6), uint32(500000)];
+                if(fishParams[0] == 115) {
+                    fishParams[0]++;
+                }
+                if(fishParams[1] == 115) {
+                    fishParams[1]++;
+                }
+                if(fishParams[2] == 75) {
+                    fishParams[2]++;
+                }
             }
         } else {
             if (seeds[5] == 5000) {//Legendary
-                fishParams = [85 + uint8(seeds[1] / 14), 85 + uint8(seeds[2] / 14), uint8(50 + seeds[3] / 3), weight];
+                fishParams = [85 + uint8(seeds[1] / 14), 85 + uint8(seeds[2] / 14), uint8(50 + seeds[3] / 3), uint32(1000)];
+                if(fishParams[0] == 85) {
+                    fishParams[0]++;
+                }
+                if(fishParams[1] == 85) {
+                    fishParams[1]++;
+                }
             } else if (seeds[5] > 4899) {//Epic
-                fishParams = [50 + uint8(seeds[1] / 12), 50 + uint8(seeds[2] / 12), uint8(25 + seeds[3] / 3), weight];
+                fishParams = [50 + uint8(seeds[1] / 12), 50 + uint8(seeds[2] / 12), uint8(25 + seeds[3] / 3), uint32(300)];
+                if(fishParams[0] == 50) {
+                    fishParams[0]++;
+                }
+                if(fishParams[1] == 50) {
+                    fishParams[1]++;
+                }
+
             } else if (seeds[5] > 4000) {//Rare
-                fishParams = [20 + uint8(seeds[1] / 14), 20 + uint8(seeds[2] / 14), uint8(25 + seeds[3] / 2), weight];
+                fishParams = [20 + uint8(seeds[1] / 14), 20 + uint8(seeds[2] / 14), uint8(25 + seeds[3] / 3), uint32(100)];
+                if(fishParams[0] == 20) {
+                    fishParams[0]++;
+                }
+                if(fishParams[1] == 20) {
+                    fishParams[1]++;
+                }
             } else {//Common
-                fishParams = [uint8(seeds[1] / 21), uint8(seeds[2] / 21), uint8(seeds[3] / 3), weight];
+                fishParams = [uint8(seeds[1] / 21), uint8(seeds[2] / 21), uint8(seeds[3] / 3), uint32(36)];
                 if (fishParams[0] == 0) {
                     fishParams[0] = 1;
                 }
@@ -97,7 +132,7 @@ contract FishbankUtils is Ownable {
     }
 
     function getCooldown(uint8 speed) external view returns (uint64){
-        return uint64(now + cooldowns[speed]);
+        return uint64(now + cooldowns[speed - 1]);
     }
 
     //Ceiling function for fish generator

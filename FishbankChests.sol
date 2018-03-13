@@ -5,7 +5,7 @@ import "./FishbankBoosters.sol";
 
 contract FishbankChests is Ownable {
 
-    struct Chest{
+    struct Chest {
         address owner;
         uint16 boosters;
         uint16 chestType;
@@ -35,17 +35,19 @@ contract FishbankChests is Ownable {
         boosterContract = FishbankBoosters(_boosterAddress);
     }
 
-    function addMinter (address _minter) onlyOwner public {
+    function addMinter(address _minter) onlyOwner public {
         minters[_minter] = true;
     }
 
-    function removeMinter (address _minter) onlyOwner public {
-        minters[_minter]= false;
+    function removeMinter(address _minter) onlyOwner public {
+        minters[_minter] = false;
     }
 
     //create a chest
-    function mintChest(address _owner, uint16 _boosters, uint24 _raiseStrength, uint24 _raiseChance, uint8 _onlySpecificType, uint8 _onlySpecificStrength) onlyMinters public{
-        chests.length ++;
+
+    function mintChest(address _owner, uint16 _boosters, uint24 _raiseStrength, uint24 _raiseChance, uint8 _onlySpecificType, uint8 _onlySpecificStrength) onlyMinters public {
+
+        chests.length++;
         chests[chests.length - 1].owner = _owner;
         chests[chests.length - 1].boosters = _boosters;
         chests[chests.length - 1].raiseStrength = _raiseStrength;
@@ -60,20 +62,20 @@ contract FishbankChests is Ownable {
         Chest memory chest = chests[_tokenId];
         uint16 numberOfBoosters = chest.boosters;
 
-        if(chest.onlySpecificType != 0) { //Specific boosters
-            if(chest.onlySpecificType == 1 || chest.onlySpecificType == 3) {
+        if (chest.onlySpecificType != 0) {//Specific boosters
+            if (chest.onlySpecificType == 1 || chest.onlySpecificType == 3) {
                 boosterContract.mintBooster(msg.sender, 2 days, chest.onlySpecificType, chest.onlySpecificStrength, chest.boosters, chest.raiseStrength);
-            } else if (chest.onlySpecificType == 5){ //Instant attack
+            } else if (chest.onlySpecificType == 5) {//Instant attack
                 boosterContract.mintBooster(msg.sender, 0, 5, 1, chest.boosters, chest.raiseStrength);
-            } else if (chest.onlySpecificType == 2){ //Freeze
-                uint32 freezeTime = 1 days;
+            } else if (chest.onlySpecificType == 2) {//Freeze
+                uint32 freezeTime = 7 days;
                 if (chest.onlySpecificStrength == 2) {
-                    freezeTime = 3 days;
+                    freezeTime = 14 days;
                 } else if (chest.onlySpecificStrength == 3) {
-                    freezeTime = 7 days;
+                    freezeTime = 30 days;
                 }
                 boosterContract.mintBooster(msg.sender, freezeTime, 5, chest.onlySpecificType, chest.boosters, chest.raiseStrength);
-            } else if (chest.onlySpecificType == 4){ //Watch
+            } else if (chest.onlySpecificType == 4) {//Watch
                 uint32 watchTime = 12 hours;
                 if (chest.onlySpecificStrength == 2) {
                     watchTime = 48 hours;
@@ -83,35 +85,36 @@ contract FishbankChests is Ownable {
                 boosterContract.mintBooster(msg.sender, watchTime, 4, chest.onlySpecificStrength, chest.boosters, chest.raiseStrength);
             }
 
-        } else { //Regular chest
+        } else {//Regular chest
 
-            for(uint8 i = 0; i < numberOfBoosters; i ++) {
+            for (uint8 i = 0; i < numberOfBoosters; i ++) {
                 uint24 random = uint16(keccak256(block.coinbase, block.blockhash(block.number - 1), i, chests.length)) % 1000
-                - chest.raiseChance; //get random 0 - 9999 minus raiseChance
+                - chest.raiseChance;
+                //get random 0 - 9999 minus raiseChance
 
-                if( random > 850 ) {
+                if (random > 850) {
                     boosterContract.mintBooster(msg.sender, 2 days, 1, 1, 1, chest.raiseStrength); //Small Agility Booster
-                } else if( random > 700) {
-                    boosterContract.mintBooster(msg.sender, 1 days, 2, 1, 1, chest.raiseStrength); //Small Freezer
-                } else if( random > 550) {
+                } else if (random > 700) {
+                    boosterContract.mintBooster(msg.sender, 7 days, 2, 1, 1, chest.raiseStrength); //Small Freezer
+                } else if (random > 550) {
                     boosterContract.mintBooster(msg.sender, 2 days, 3, 1, 1, chest.raiseStrength); //Small Power Booster
-                } else if( random > 400) {
+                } else if (random > 400) {
                     boosterContract.mintBooster(msg.sender, 12 hours, 4, 1, 1, chest.raiseStrength); //Tiny Watch
-                } else if( random > 325) {
+                } else if (random > 325) {
                     boosterContract.mintBooster(msg.sender, 48 hours, 4, 2, 1, chest.raiseStrength); //Small Watch
-                } else if( random > 250 ) {
+                } else if (random > 250) {
                     boosterContract.mintBooster(msg.sender, 2 days, 1, 2, 1, chest.raiseStrength); //Mid Agility Booster
-                } else if( random > 175) {
-                    boosterContract.mintBooster(msg.sender, 3 days, 2, 2, 1, chest.raiseStrength); //Mid Freezer
-                } else if( random > 100) {
+                } else if (random > 175) {
+                    boosterContract.mintBooster(msg.sender, 14 days, 2, 2, 1, chest.raiseStrength); //Mid Freezer
+                } else if (random > 100) {
                     boosterContract.mintBooster(msg.sender, 2 days, 3, 2, 1, chest.raiseStrength); //Mid Power Booster
-                } else if( random > 80 ) {
+                } else if (random > 80) {
                     boosterContract.mintBooster(msg.sender, 2 days, 1, 3, 1, chest.raiseStrength); //Big Agility Booster
-                } else if( random > 60) {
-                    boosterContract.mintBooster(msg.sender, 7 days, 2, 3, 1, chest.raiseStrength); //Big Freezer
-                } else if( random > 40) {
+                } else if (random > 60) {
+                    boosterContract.mintBooster(msg.sender, 30 days, 2, 3, 1, chest.raiseStrength); //Big Freezer
+                } else if (random > 40) {
                     boosterContract.mintBooster(msg.sender, 2 days, 3, 3, 1, chest.raiseStrength); //Big Power Booster
-                } else if( random > 20) {
+                } else if (random > 20) {
                     boosterContract.mintBooster(msg.sender, 0, 5, 1, 1, 0); //Instant Attack
                 } else {
                     boosterContract.mintBooster(msg.sender, 3 days, 4, 3, 1, 0); //Gold Watch
@@ -119,8 +122,7 @@ contract FishbankChests is Ownable {
             }
         }
 
-
-        _transfer(msg.sender, address(0), _tokenId);//burn chest
+        _transfer(msg.sender, address(0), _tokenId); //burn chest
     }
 
     //ERC721 functionality
@@ -128,7 +130,7 @@ contract FishbankChests is Ownable {
     event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
 
-    function totalSupply() public view returns(uint256 total) {
+    function totalSupply() public view returns (uint256 total) {
         total = chests.length;
     }
 
@@ -140,20 +142,21 @@ contract FishbankChests is Ownable {
         owner = chests[_tokenId].owner;
     }
 
-    function _transfer(address _from, address _to, uint256 _tokenId) internal{
-        require(chests[_tokenId].owner == _from);//can only transfer if previous owner equals from
+    function _transfer(address _from, address _to, uint256 _tokenId) internal {
+        require(chests[_tokenId].owner == _from); //can only transfer if previous owner equals from
         chests[_tokenId].owner = _to;
-        approved[_tokenId] = address(0);//reset approved of fish on every transfer
-        balances[_from] -= 1;//underflow can only happen on 0x
+        approved[_tokenId] = address(0); //reset approved of fish on every transfer
+        balances[_from] -= 1; //underflow can only happen on 0x
         balances[_to] += 1; //overflows only with very very large amounts of fish
         Transfer(_from, _to, _tokenId);
     }
 
     function transfer(address _to, uint256 _tokenId) public
     onlyChestOwner(_tokenId) //check if msg.sender is the owner of this fish
-    returns(bool)
+    returns (bool)
     {
-        _transfer(msg.sender, _to, _tokenId);//after master modifier invoke internal transfer
+        _transfer(msg.sender, _to, _tokenId);
+        //after master modifier invoke internal transfer
         return true;
     }
 
@@ -164,9 +167,11 @@ contract FishbankChests is Ownable {
         Approval(msg.sender, _to, _tokenId);
     }
 
-    function transferFrom(address _from, address _to, uint256 _tokenId) public returns(bool) {
-        require(approved[_tokenId] == msg.sender); //require msg.sender to be approved for this token
-        _transfer(_from, _to, _tokenId);//handles event, balances and approval reset
+    function transferFrom(address _from, address _to, uint256 _tokenId) public returns (bool) {
+        require(approved[_tokenId] == msg.sender);
+        //require msg.sender to be approved for this token
+        _transfer(_from, _to, _tokenId);
+        //handles event, balances and approval reset
         return true;
     }
 
