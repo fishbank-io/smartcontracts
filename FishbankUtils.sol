@@ -98,7 +98,7 @@ contract FishbankUtils is Ownable {
                     fishParams[1]++;
                 }
             } else if (seeds[5] > 4899) {//Epic
-                fishParams = [50 + uint8(seeds[1] / 12), 50 + uint8(seeds[2] / 12), uint8(25 + seeds[3] / 3), uint32(300)];
+                fishParams = [50 + uint8(seeds[1] / 12), 50 + uint8(seeds[2] / 12), uint8(25 + seeds[3] / 2), uint32(300)];
                 if(fishParams[0] == 50) {
                     fishParams[0]++;
                 }
@@ -131,7 +131,7 @@ contract FishbankUtils is Ownable {
         return fishParams;
     }
 
-    function getCooldown(uint8 speed) external view returns (uint64){
+    function getCooldown(uint16 speed) external view returns (uint64){
         return uint64(now + cooldowns[speed - 1]);
     }
 

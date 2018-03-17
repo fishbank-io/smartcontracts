@@ -21,16 +21,6 @@ contract ChestsStore is Beneficiary {
     chestProduct[255] public chestProducts;
     FishbankChests chests;
 
-    event ChestProductUpdated(
-        uint256 chestId,
-        uint256 price,
-        bool isLimited,
-        uint32 limit,
-        uint16 boosters,
-        uint24 raiseChance,
-        uint24 raiseStrength,
-        uint8 onlyBoosterType,
-        uint8 onlyBoosterStrength);
 
     function ChestsStore(address _chests) public {
         chests = FishbankChests(_chests);
@@ -54,14 +44,10 @@ contract ChestsStore is Beneficiary {
         newProduct.raiseStrength = raiseStrength;
         newProduct.onlyBoosterType = onlyBoosterType;
         newProduct.onlyBoosterStrength = onlyBoosterStrength;
-
-        ChestProductUpdated(chestId, price, isLimited, limit, boosters, raiseChance, raiseStrength, onlyBoosterType, onlyBoosterStrength);
     }
 
     function setChestPrice(uint16 chestId, uint256 price) onlyOwner public {
         chestProducts[chestId].price = price;
-
-        ChestProductUpdated(chestId, price, chestProducts[chestId].isLimited, chestProducts[chestId].limit, chestProducts[chestId].boosters, chestProducts[chestId].raiseChance, chestProducts[chestId].raiseStrength, chestProducts[chestId].onlyBoosterType, chestProducts[chestId].onlyBoosterStrength);
     }
 
     function buyChest(uint16 _chestId) payable public {

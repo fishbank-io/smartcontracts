@@ -23,9 +23,6 @@ contract FishbankBoosters is Ownable {
     address public chests;
     address public auction;
 
-    event Pack(uint256 baseTokenId, uint256[] tokenIds);
-    event Unpack(uint256 tokenId);
-
     modifier onlyBoosterOwner(uint256 _tokenId) {
         require(boosters[_tokenId].owner == msg.sender);
         _;
@@ -57,9 +54,6 @@ contract FishbankBoosters is Ownable {
     }
 
     function setFishbank(address _fishbank) onlyOwner public {
-        //   if(fishbank != address(0)){//cannot be changed multiple times
-        //     revert();
-        //   }
         fishbank = _fishbank;
     }
 
@@ -72,59 +66,6 @@ contract FishbankBoosters is Ownable {
 
     function setAuction(address _auction) onlyOwner public {
         auction = _auction;
-    }
-
-    function pack(uint256[] _tokenIds) public {
-        require(_tokenIds.length > 1);
-        //must have enough token ids
-        require(boosters[_tokenIds[0]].owner == msg.sender);
-
-        Booster storage baseBooster = boosters[_tokenIds[0]];
-        //booster where al others will be combined in
-
-        for (uint256 i = 1; i < _tokenIds.length; i++) {
-            //Compare boosters to make sure they are the same kind, duration and strength
-            require(baseBooster.owner == boosters[_tokenIds[i]].owner);
-            require(baseBooster.boosterType == boosters[_tokenIds[i]].boosterType);
-            require(baseBooster.strength == boosters[_tokenIds[i]].strength);
-            require(baseBooster.raiseValue == boosters[_tokenIds[i]].raiseValue);
-            //raiseValue must be same
-
-            uint32 tempAmount = baseBooster.amount;
-            baseBooster.amount += boosters[_tokenIds[i]].amount;
-            //combine amounts
-            require(baseBooster.amount > tempAmount);
-            //check for overflow;
-
-            _transfer(msg.sender, address(0), _tokenIds[i]);
-            //burn booster
-
-        }
-
-        Pack(_tokenIds[0], _tokenIds);
-
-    }
-
-    function unpack(uint256 _tokenId, uint8 _amount) onlyBoosterOwner(_tokenId) public {
-        require(boosters[_tokenId].amount > _amount);
-        //cannot split of more than amount
-
-        boosters[_tokenId].amount -= _amount;
-
-        boosters.length ++;
-
-        Booster storage tempBooster = boosters[boosters.length - 1];
-
-        tempBooster.owner = msg.sender;
-        tempBooster.duration = boosters[_tokenId].duration;
-        tempBooster.boosterType = boosters[_tokenId].boosterType;
-        tempBooster.strength = boosters[_tokenId].strength;
-        tempBooster.raiseValue = boosters[_tokenId].raiseValue;
-        tempBooster.amount = _amount;
-
-        Transfer(address(0), msg.sender, boosters.length - 1);
-
-        Unpack(_tokenId);
     }
 
     function getBoosterType(uint256 _tokenId) view public returns (uint8 boosterType) {

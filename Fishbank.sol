@@ -17,10 +17,10 @@ contract Fishbank is ChestsStore {
         uint64 boostedTill;
         uint8 boosterStrength;
         uint24 boosterRaiseValue;
-        uint32 weight;
-        uint8 power;
-        uint8 agility;
-        uint8 speed;
+        uint64 weight;
+        uint16 power;
+        uint16 agility;
+        uint16 speed;
         bytes16 color;
         uint64 canFightAgain;
         uint64 canBeAttackedAgain;
@@ -60,8 +60,6 @@ contract Fishbank is ChestsStore {
     uint256 public hashesUsed;
     uint256 public aquariumCost = 1 ether / 100 * 3;//fee for fishing starts at 0.03 ether
     uint256 public resolveTime = 30 minutes;//how long does the contract owner have to resolve hashes
-    uint16 public fightFactor = 60;
-    uint16 public fightBase = 100;
     uint16 public weightLostPartLimit = 5;
     FishbankBoosters public boosters;
     FishbankChests public chests;
@@ -75,25 +73,22 @@ contract Fishbank is ChestsStore {
     mapping(address => bool) public affiliated;
 
     event AquariumFished(
-        bytes32 indexed hash,
-        address indexed fisher,
+        bytes32 hash,
+        address fisher,
         uint256 feePaid
     ); //event broadcated when someone fishes in aqaurium
 
-    event AquariumResolved(bytes32 indexed hash, address indexed fisher);
+    event AquariumResolved(bytes32 hash, address fisher);
 
     event Attack(
-        uint256 indexed attacker,
-        uint256 indexed victim,
-        uint256 indexed winner,
-        uint32 weight,
+        uint256 attacker,
+        uint256 victim,
+        uint256 winner,
+        uint64 weight,
         uint256 ap, uint256 vp, uint256 random
     );
 
     event BoosterApplied(uint256 tokenId, uint256 boosterId);
-    event Sleep(uint256 indexed tokenId);
-    event Awake(uint256 indexed tokenId);
-
 
     /// @notice Constructor of the contract. Sets resolver, beneficiary, boosters and chests
     /// @param _boosters the address of the boosters smart contract
@@ -150,11 +145,6 @@ contract Fishbank is ChestsStore {
         Transfer(address(0), _owner, newFishId);
     }
 
-    function setFightFactor(uint8 _fightFactor, uint8 _fightBase) onlyOwner public {
-        fightFactor = _fightFactor;
-        fightBase = _fightBase;
-    }
-
     function setWeightLostPartLimit(uint8 _weightPart) onlyOwner public {
         weightLostPartLimit = _weightPart;
     }
@@ -194,29 +184,37 @@ contract Fishbank is ChestsStore {
         utils = FishbankUtils(_utils);
     }
 
-    /// @notice Call this to fish in the aquarium to get a fish or chests
-    /// @param _seed User supllied random input so owner cannot cheat
-    function fishAquarium(uint256 _seed) payable public returns (bytes32) {
+    function batchFishAquarium(uint256[] _seeds, address _affiliate) payable public {
+        require(_seeds.length > 0);
         require(msg.value >= aquariumCost);
         //must send enough ether to cover costs
-        require(randomHashes.length > hashesUsed);
+        require(randomHashes.length > hashesUsed + _seeds.length);
         //there needs to be a hash left
 
-        if (msg.value > aquariumCost) {
-            msg.sender.transfer(msg.value - aquariumCost);
+
+
+        if (msg.value > aquariumCost * _seeds.length) {
+            msg.sender.transfer(msg.value - aquariumCost * _seeds.length);
             //send to much ether back
         }
 
-        while (true) {//this loop prevents from using the same hash as another fishing attempt if the owner submits the same hash multiple times
-            if (pendingFishing[randomHashes[hashesUsed]].fisher == address(0)) {//if hash was not used already
-                FishingAttempt storage newAttempt = pendingFishing[randomHashes[hashesUsed]];
-                //storage pointer to new fishing attempt
-                break;
-                //break
-            }
+        for (uint256 i = 0; i < _seeds.length; i ++) {
+            _fishAquarium(_seeds[i]);
+        }
+
+        if(_affiliate != address(0)) {
+            pendingFishing[randomHashes[hashesUsed - 1]].affiliate = _affiliate;
+        }
+    }
+
+    function _fishAquarium(uint256 _seed) internal {
+        //this loop prevents from using the same hash as another fishing attempt if the owner submits the same hash multiple times
+        while (pendingFishing[randomHashes[hashesUsed]].fisher != address(0)) {
             hashesUsed++;
             //increase hashesUsed and try next one
         }
+
+        FishingAttempt storage newAttempt = pendingFishing[randomHashes[hashesUsed]];
 
         newAttempt.fisher = msg.sender;
         newAttempt.feePaid = aquariumCost;
@@ -231,46 +229,21 @@ contract Fishbank is ChestsStore {
 
         AquariumFished(randomHashes[hashesUsed - 1], msg.sender, aquariumCost);
         //broadcast event
-        return randomHashes[hashesUsed - 1];
-        //returns the hash used by this fishingAquarium call
-    }
-
-    /// @notice Call this function to fish in aquarium passing an affiliate
-    /// @param _seed User supllied random input so owner cannot cheat
-    /// @param _affiliate address of affiliate receiving reward
-    function fishAquariumAffiliate(uint256 _seed, address _affiliate) payable public returns (bytes32) {
-        bytes32 returnHash = fishAquarium(_seed);
-        //create pending fishing
-        pendingFishing[randomHashes[hashesUsed - 1]].affiliate = _affiliate;
-        return returnHash;
-    }
-
-
-    /// @notice If resolver fails to resolve within the set time this can be called to get fee back
-    /// @param _hash hash associated with fishing attempt
-    function getAquariumFee(bytes32 _hash) public {
-        require(pendingFishing[_hash].deadline < now);
-        //only allow refund after deadline
-
-        FishingAttempt storage tempAttempt = pendingFishing[_hash];
-
-        tempAttempt.fisher.transfer(tempAttempt.feePaid);
-
-        delete pendingFishing[_hash];
-        //delete attempt so it can not be refunded again
     }
 
     /// @notice Call this to resolve hashes and generate fish/chests
     /// @param _seed seed that corresponds to the hash
-    function resolveAquarium(uint256 _seed) onlyResolver public {
+    function _resolveAquarium(uint256 _seed) internal {
         bytes32 tempHash = keccak256(_seed);
         FishingAttempt storage tempAttempt = pendingFishing[tempHash];
 
         require(tempAttempt.fisher != address(0));
         //attempt must be set so we look if fisher is set
 
-        if (tempAttempt.affiliate != address(0)) {//if affiliate is set
-            giveAffiliateChest(tempAttempt.affiliate, tempAttempt.fisher);
+        if (tempAttempt.affiliate != address(0) && !affiliated[tempAttempt.fisher]) {//if affiliate is set
+            chests.mintChest(tempAttempt.affiliate, 1, 0, 0, 0, 0);
+            //Chest with one random booster
+            affiliated[tempAttempt.fisher] = true;
         }
 
         uint32[4] memory fishParams = utils.getFishParams(_seed, tempAttempt.seed, fishes.length, block.coinbase);
@@ -289,7 +262,7 @@ contract Fishbank is ChestsStore {
     /// @param _seeds array of seeds that correspond to hashes that need resolving
     function batchResolveAquarium(uint256[] _seeds) onlyResolver public {
         for (uint256 i = 0; i < _seeds.length; i ++) {
-            resolveAquarium(_seeds[i]);
+            _resolveAquarium(_seeds[i]);
         }
     }
 
@@ -311,13 +284,14 @@ contract Fishbank is ChestsStore {
         Fish memory victim = fishes[_victim];
 
         //check if attacker is sleeping
-        if (attacker.activeBooster == 2 && attacker.boostedTill <= now) {//if your fish is sleeping auto awake it
-            fishes[_attacker].activeBooster = 100;
+        if (attacker.activeBooster == 2 && attacker.boostedTill > now) {//if your fish is sleeping auto awake it
+            fishes[_attacker].activeBooster = 0;
+            attacker.boostedTill = uint64(now);
             //set booster to invalid one so it has no effect
         }
 
-        //check if victim has active sleeping booster or on not expired auction
-        require(!((victim.activeBooster == 2 || victim.activeBooster == 6) && victim.boostedTill >= now));
+        //check if victim has active sleeping booster
+        require(!((victim.activeBooster == 2) && victim.boostedTill >= now));
         //cannot attack a sleeping fish
         require(now >= attacker.canFightAgain);
         //check if attacking fish is cooled down
@@ -326,13 +300,14 @@ contract Fishbank is ChestsStore {
 
 
         if (msg.sender == victim.owner) {
-            uint32 weight = attacker.weight < victim.weight ? attacker.weight : victim.weight;
+            uint64 weight = attacker.weight < victim.weight ? attacker.weight : victim.weight;
             fishes[_attacker].weight += weight;
             fishes[_victim].weight -= weight;
             fishes[_attacker].canFightAgain = uint64(utils.getCooldown(attacker.speed));
 
             if (fishes[_victim].weight == 0) {
                 _transfer(msg.sender, address(0), _victim);
+                balances[fishes[_victim].owner] --;
                 //burn token
             } else {
                 fishes[_victim].canBeAttackedAgain = uint64(now + 1 hours);
@@ -348,18 +323,18 @@ contract Fishbank is ChestsStore {
             //revert if one of the fish is below fighting weight
         }
 
-        uint AP = getFightingAmounts(attacker, true);
+        uint256 AP = getFightingAmounts(attacker, true);
         // get attacker power
-        uint VP = getFightingAmounts(victim, false);
+        uint256 VP = getFightingAmounts(victim, false);
         // get victim power
 
         bytes32 randomHash = keccak256(block.coinbase, block.blockhash(block.number - 1), fishes.length);
 
-        uint max = AP > VP ? AP : VP;
-        uint attackRange = max * 2;
-        uint random = uint(randomHash) % attackRange + 1;
+        uint256 max = AP > VP ? AP : VP;
+        uint256 attackRange = max * 2;
+        uint256 random = uint256(randomHash) % attackRange + 1;
 
-        uint32 weightLost;
+        uint64 weightLost;
 
         if (random <= (max + AP - VP)) {
             weightLost = _handleWin(_attacker, _victim);
@@ -378,14 +353,14 @@ contract Fishbank is ChestsStore {
     /// @notice Handles lost gained weight after fight
     /// @param _winner the winner of the fight
     /// @param _loser the loser of the fight
-    function _handleWin(uint256 _winner, uint256 _loser) internal returns (uint32) {
+    function _handleWin(uint256 _winner, uint256 _loser) internal returns (uint64) {
         Fish storage winner = fishes[_winner];
         Fish storage loser = fishes[_loser];
 
-        uint32 fullWeightLost = loser.weight / sqrt(winner.weight);
-        uint32 maxWeightLost = loser.weight / weightLostPartLimit;
+        uint64 fullWeightLost = loser.weight / sqrt(winner.weight);
+        uint64 maxWeightLost = loser.weight / weightLostPartLimit;
 
-        uint32 weightLost = maxWeightLost < fullWeightLost ? maxWeightLost : fullWeightLost;
+        uint64 weightLost = maxWeightLost < fullWeightLost ? maxWeightLost : fullWeightLost;
 
         if (weightLost < 1) {
             weightLost = 1;
@@ -401,37 +376,8 @@ contract Fishbank is ChestsStore {
     /// @notice get attack and defence from fish
     /// @param _fish is Fish token
     /// @param _is_attacker true if fish is attacker otherwise false
-    function getFightingAmounts(Fish _fish, bool _is_attacker) internal view returns (uint){
-        uint16 agilityFactor;
-        uint16 powerFactor;
-
-        if (_is_attacker) {//Role is attacker
-            powerFactor = fightFactor;
-            agilityFactor = fightBase - fightFactor;
-        }
-        else {//Role victim
-            powerFactor = fightBase - fightFactor;
-            agilityFactor = fightFactor;
-        }
-
-        return (getFishPower(_fish) * powerFactor + getFishAgility(_fish) * agilityFactor) * _fish.weight;
-
-    }
-
-
-    /// @notice Internal method that gives affiliate chests
-    /// @param _affiliate address of affiliate getting the chest
-    /// @param _fisher address of the fisher the affiliate referred
-    function giveAffiliateChest(address _affiliate, address _fisher) internal {
-        if (affiliated[_fisher]) {//do not give free chest if this user is affiliated but do not revert tx
-            return;
-        }
-
-        chests.mintChest(_affiliate, 1, 0, 0, 0, 0);
-        //Chest with one random booster
-
-        affiliated[_fisher] = true;
-        //now no one can get a fish for referring this address anymore
+    function getFightingAmounts(Fish _fish, bool _is_attacker) internal view returns (uint256){
+        return (getFishPower(_fish) * (_is_attacker ? 60 : 40) + getFishAgility(_fish) * (_is_attacker ? 40 : 60)) * _fish.weight;
     }
 
     /// @notice Apply a booster to a fish
@@ -470,9 +416,9 @@ contract Fishbank is ChestsStore {
     }
 
     /// @notice square root function used for weight gain/loss
-    /// @param x uint32 to get square root from
-    function sqrt(uint32 x) pure internal returns (uint32 y) {
-        uint32 z = (x + 1) / 2;
+    /// @param x uint64 to get square root from
+    function sqrt(uint64 x) pure internal returns (uint64 y) {
+        uint64 z = (x + 1) / 2;
         y = x;
         while (z < y) {
             y = z;
@@ -488,7 +434,7 @@ contract Fishbank is ChestsStore {
     function getFishPower(Fish _fish) internal view returns (uint24 power) {
         power = _fish.power;
         if (_fish.activeBooster == 1 && _fish.boostedTill > now) {// check if booster active
-            uint24 boosterPower = (5 * _fish.boosterStrength + _fish.boosterRaiseValue + 100) * power / 100 - power;
+            uint24 boosterPower = (10 * _fish.boosterStrength + _fish.boosterRaiseValue + 100) * power / 100 - power;
             if (boosterPower < 1 && _fish.boosterStrength == 1) {
                 power += 1;
             } else if (boosterPower < 3 && _fish.boosterStrength == 2) {
@@ -504,7 +450,7 @@ contract Fishbank is ChestsStore {
     function getFishAgility(Fish _fish) internal view returns (uint24 agility) {
         agility = _fish.agility;
         if (_fish.activeBooster == 3 && _fish.boostedTill > now) {// check if booster active
-            uint24 boosterPower = (5 * _fish.boosterStrength + _fish.boosterRaiseValue + 100) * agility / 100 - agility;
+            uint24 boosterPower = (10 * _fish.boosterStrength + _fish.boosterRaiseValue + 100) * agility / 100 - agility;
             if (boosterPower < 1 && _fish.boosterStrength == 1) {
                 agility += 1;
             } else if (boosterPower < 3 && _fish.boosterStrength == 2) {
@@ -566,10 +512,13 @@ contract Fishbank is ChestsStore {
 
     function transferFrom(address _from, address _to, uint256 _tokenId) public returns (bool) {
         require(approved[_tokenId] == msg.sender || msg.sender == auction);
+        Fish storage fish = fishes[_tokenId];
+
         if (msg.sender == auction) {
-            fishes[_tokenId].activeBooster = 2;
+            fish.activeBooster = 2;
             //Freeze for auction
-            fishes[_tokenId].boostedTill = now + 7 days;
+            fish.boostedTill = uint64(now + 7 days);
+            fish.boosterStrength = 1;
         }
         //require msg.sender to be approved for this token
         _transfer(_from, _to, _tokenId);

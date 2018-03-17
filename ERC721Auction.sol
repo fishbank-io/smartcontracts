@@ -47,7 +47,7 @@ contract ERC721Auction is Beneficiary {
     uint32 public auctionDuration = 7 days;
 
     ERC721 public ERC721Contract;
-    uint256 public fee = 37500; //in 1 10000th of a percent so 3.75% at the start
+    uint256 public fee = 45000; //in 1 10000th of a percent so 4.5% at the start
     uint256 constant FEE_DIVIDER = 1000000;
     mapping(uint256 => Auction) public auctions;
 
@@ -119,18 +119,13 @@ contract ERC721Auction is Beneficiary {
         //delete auction
     }
 
-    function isAuctionActive(uint256 _tokenId) public view returns (bool) {
-        return auctions[_tokenId].auctionEnd > now;
-    }
-
-
     function ERC721Auction(address _ERC721Contract) public {
         ERC721Contract = ERC721(_ERC721Contract);
     }
 
     function setFee(uint256 _fee) onlyOwner public {
         if (_fee > fee) {
-            revert(); //fee can only be lowerred to prevent attacks by owner
+            revert(); //fee can only be set to lower value to prevent attacks by owner
         }
         fee = _fee; // all is well set fee
     }
@@ -141,20 +136,31 @@ contract ERC721Auction is Beneficiary {
         if (now >= auction.auctionEnd) {//if auction ended return auction end price
             return auction.endPrice;
         }
-
-        uint256 hoursPassed = (now - auction.auctionBegin) / 1 hours;
         //get hours passed
+        uint256 hoursPassed = (now - auction.auctionBegin) / 1 hours;
         uint256 currentPrice;
+        //get total hours
+        uint16 totalHours = uint16(auctionDuration /1 hours) - 1;
 
         if (auction.endPrice > auction.startPrice) {
-            currentPrice = auction.startPrice + (auction.endPrice - auction.startPrice) * hoursPassed / (auctionDuration - 1 hours);
-        } else if (auction.startPrice > auction.endPrice) {
-            currentPrice = auction.startPrice - (auction.startPrice - auction.endPrice) * hoursPassed / (auctionDuration - 1 hours);
+            currentPrice = auction.startPrice + (hoursPassed * (auction.endPrice - auction.startPrice))/ totalHours;
+        } else if(auction.endPrice < auction.startPrice) {
+            currentPrice = auction.startPrice - (hoursPassed * (auction.startPrice - auction.endPrice))/ totalHours;
         } else {//start and end are the same
             currentPrice = auction.endPrice;
         }
 
-        return (uint256(currentPrice));
+        return uint256(currentPrice);
         //return the price at this very moment
+    }
+
+    /// return token if case when need to redeploy auction contract
+    function returnToken(uint256 _tokenId) onlyOwner public {
+        require(ERC721Contract.transfer(auctions[_tokenId].seller, _tokenId));
+        //transfer fish back to seller
+
+        AuctionFinalized(_tokenId, auctions[_tokenId].seller);
+
+        delete auctions[_tokenId];
     }
 }
