@@ -184,14 +184,13 @@ contract Fishbank is ChestsStore {
         utils = FishbankUtils(_utils);
     }
 
+    /// batch fishing from 1 to 10 times
     function batchFishAquarium(uint256[] _seeds, address _affiliate) payable public {
-        require(_seeds.length > 0);
-        require(msg.value >= aquariumCost);
+        require(_seeds.length > 0 && _seeds.length <= 10);
+        require(msg.value >= aquariumCost * _seeds.length);
         //must send enough ether to cover costs
         require(randomHashes.length > hashesUsed + _seeds.length);
         //there needs to be a hash left
-
-
 
         if (msg.value > aquariumCost * _seeds.length) {
             msg.sender.transfer(msg.value - aquariumCost * _seeds.length);
